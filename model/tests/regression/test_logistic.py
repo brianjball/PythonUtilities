@@ -1,7 +1,7 @@
 import time
 import unittest
 from numpy import exp
-from model.regression.logistic import NumpyLassoLogisticModel
+from model_utilities.regression.logistic import NumpyLassoLogisticModel
 
 
 class TestNumpyLassoLogisticModel(unittest.TestCase):
@@ -19,5 +19,5 @@ class TestNumpyLassoLogisticModel(unittest.TestCase):
         print(f"Numpy {(end - start) / 1000000000}")
 
         self.assertTrue(lasso_model_no_intercept._initialized)
-        self.assertAlmostEqual(lasso_model_no_intercept.getParameters()[0], -1.5, 4)
-        self.assertAlmostEqual(lasso_model_no_intercept.getParameters()[1], -0.5, 4)
+        self.assertAlmostEqual(lasso_model_no_intercept.get_parameters()[0], -1.5, 4)
+        self.assertAlmostEqual(lasso_model_no_intercept.get_parameters()[1], -0.5, 4)

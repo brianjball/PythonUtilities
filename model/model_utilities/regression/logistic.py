@@ -5,6 +5,15 @@ from scipy.optimize import minimize, basinhopping
 
 
 class NumpyLassoLogisticModel:
+    """
+    This model_utilities is a logistic REGRESSION - it does not do classification, it fits a logistic curve to data as a regression. This class also allows for an alpha parameter so you can do lasso dimensional reduction. The parameters are the linear parameters (C), then the line's intercept (D), then the magnitude of the curve (A), then the vertical adjustment (B).
+
+    Note that logistic fits have an interesting symmetry in them that needs to be accounted for. If I say my equation is B + A / (1 + exp(x*C + D)), I have the following symmetry (notice that I can apply it twice to return to the original answer!):
+        A -> -A
+        B -> B + A
+        C -> -C
+        D -> -D
+    """
     def __init__(self,
                  alpha: float = 0.0,
                  tol: float = None):
@@ -20,19 +29,19 @@ class NumpyLassoLogisticModel:
 
         Args:
             x (array): A 2-dimensional array with the number of points and the point dimensions. Assumes an extra value of "1" has been appended to the inputs so the shapes match.
-            theta (array): The parameters of the logistic model. Must be a 1-dimensional array.
+            theta (array): The parameters of the logistic model_utilities. Must be a 1-dimensional array.
 
         Returns:
             array: The predictions for the points.
         """
         return 1 / (1 + exp(dot(X, theta)))
 
-    def _constrained_lasso(self, theta: array, X: array, Y: array):
+    def _constrained_lasso(self, theta: array, X: array, Y: array) -> array:
         """
         Evaluates points of the logistic curve.
 
         Args:
-            theta (array): The parameters of the logistic model. Must be a 1-dimensional array.
+            theta (array): The parameters of the logistic model_utilities. Must be a 1-dimensional array.
             x (array): A 2-dimensional array with the number of points and the point dimensions. Assumes an extra value of "1" has been appended to the inputs so the shapes match.
             y (array): A 1-dimensional array with the observed points.
 
@@ -41,7 +50,7 @@ class NumpyLassoLogisticModel:
         """
         return sum((Y - self._evalute_point(X, theta)) ** 2) / 2 / X.shape[0] + sum(self._alpha * abs(theta))
 
-    def _copy_and_add_intercept(self, x: array):
+    def _copy_and_add_intercept(self, x: array) -> array:
         return append(x, ones((x.shape[0], 1)), axis=1)
 
     # BFGS isn't very good on constrained optimization. Nelder-Mead does a much better job.
