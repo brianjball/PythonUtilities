@@ -1,7 +1,7 @@
 from typing import Tuple, Optional, Dict, Union, Sequence, Any, Set
 
 import mlflow.pyfunc
-from mlflow.entities import Run
+from mlflow.entities import Run, Experiment
 from pandas import DataFrame, Series
 from pkg_resources import packaging
 
@@ -152,9 +152,9 @@ def update_active_runs(test_fraction_by_run: Dict[str, float],
     active_runs = list_runs(model_version, experiment_id, experiment_name, ModelStatus.Active, submodel_name, extra_immutable_metadata, extra_mutable_metadata)
     canary_runs = list_runs(model_version, experiment_id, experiment_name, ModelStatus.Canary, submodel_name, extra_immutable_metadata, extra_mutable_metadata)
 
-    new_run_set: Set[str] = {run.info.run_id for _, run in new_runs.iterrows()}
-    active_run_set: Set[str] = {run.info.run_id for _, run in active_runs.iterrows()}
-    canary_runs_set: Set[str] = {run.info.run_id for _, run in canary_runs.iterrows()}
+    new_run_set: Set[str] = {run.run_id for _, run in new_runs.iterrows()}
+    active_run_set: Set[str] = {run.run_id for _, run in active_runs.iterrows()}
+    canary_runs_set: Set[str] = {run.run_id for _, run in canary_runs.iterrows()}
 
     if test_fraction_by_run.keys() - new_run_set - active_run_set - canary_runs_set:
         raise ValueError("Attempting to modify a run that doesn't exist. Exiting to prevent odd behavior.")
@@ -197,7 +197,7 @@ def change_test_fractions(test_fraction_by_run: Dict[str, float],
     test_fraction_by_run = _rebalance_test_fractions(test_fraction_by_run)
     runs = list_runs(model_version, experiment_id, experiment_name, active_state, submodel_name, extra_immutable_metadata, extra_mutable_metadata)
 
-    run_dict: Dict[str, Series] = {run.info.run_id: run for _, run in runs.iterrows()}
+    run_dict: Dict[str, Series] = {run.run_id: run for _, run in runs.iterrows()}
 
     if test_fraction_by_run.keys() - run_dict.keys():
         raise ValueError("Attempting to modify a run that doesn't exist. Exiting to prevent odd behavior.")
@@ -209,7 +209,7 @@ def change_test_fractions(test_fraction_by_run: Dict[str, float],
         if test_fraction_by_run[run_to_update] <= 0.0:
             disable_run(run_to_update)
         else:
-            change_status(run_to_update, run_dict[run_to_update].data.params['active_state'], test_fraction_by_run[run_to_update])
+            change_status(run_to_update, ModelStatus(run_dict[run_to_update]['metrics.active_state']), test_fraction_by_run[run_to_update])
 
 
 def list_runs(model_version: Union[str, Tuple[str, str, str]],
@@ -232,23 +232,28 @@ def list_runs(model_version: Union[str, Tuple[str, str, str]],
         extra_mutable_metadata (Dict[str, float]): Any additional metadata specific to the model that can change over time.
     """
     if experiment_id is None and experiment_name is None:
-        raise ValueError("Experiment Id or Experiment Name must be set")
+        raise ValueError("Experiment Id or Experiment Name must be set.")
+
+    experiment: Optional[Experiment] = None
     if experiment_id is not None:
-        mlflow.set_experiment(experiment_id=experiment_id)
+        experiment = mlflow.get_experiment(experiment_id)
     else:
-        mlflow.set_experiment(experiment_name=experiment_name)
+        experiment = mlflow.get_experiment_by_name(experiment_name)
+
+    if not experiment:
+        raise ValueError("Experiment does not exist.")
 
     if type(model_version) == str:
         model_version = _parse_semver(model_version)
 
-    filter = []
+    filter = ["status = 'FINISHED'"]
 
     filter.append(_build_filter_string(True, "major_version", model_version[0]))
     filter.append(_build_filter_string(True, "minor_version", model_version[1]))
     filter.append(_build_filter_string(True, "micro_version", model_version[2]))
 
     if active_state:
-        filter.append(_build_filter_string(True, "active_state", active_state.value))
+        filter.append(_build_filter_string(False, "active_state", active_state.value))
     if submodel_name:
         filter.append(_build_filter_string(True, "submodel_name", submodel_name))
 
@@ -257,7 +262,7 @@ def list_runs(model_version: Union[str, Tuple[str, str, str]],
     for mutable_metadata_name, value in extra_mutable_metadata.items():
         filter.append(_build_filter_string(True, mutable_metadata_name, value))
 
-    runs = mlflow.search_runs(experiment_names=['myexperimentname'], filter_string=" and ".join(filter), order_by=['end_time desc'])
+    runs = mlflow.search_runs(experiment_names=[experiment.name], filter_string=" and ".join(filter), order_by=['end_time desc'])
     return runs
 
 

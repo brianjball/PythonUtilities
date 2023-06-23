@@ -9,7 +9,7 @@ class ModelStatus(Enum):
     "Active" are models that are in use in production making predictions.
     "Canary" are models that you want to make predictions with but don't want to use the results in production yet.
     """
-    Disabled = 0,
-    New = 1,
-    Active = 2,
+    Disabled = 0
+    New = 1
+    Active = 2
     Canary = 3
